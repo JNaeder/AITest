@@ -6,125 +6,118 @@ using UnityEngine.UI;
 
 public class ControllerScript : MonoBehaviour
 {
-    Camera cam;
-    
-    public GameObject guy, food, food_Guy;
 
-    public Text leftText, timeText;
-
+    public enum State { isPlacingGuys, isPlacingFoodGuys, isNothing }
+    public State switchState;
+    [Header("Prefabs")]
+    public GameObject guy;
+    public GameObject food;
+    public GameObject food_Guy;
+    [Header("UI Stuff")]
+    public Text leftText;
+    public Text timeText;
+    [Header("Time Stuff")]
     public float globalTime;
     public float timeSclaeNum = 1f;
 
-    enum State {isPlacingGuys, isPlacingFoodGuys,isNothing}
-    State switchState;
 
 
     public static int numberOfGuys;
 
+    Camera cam;
 
-    int min = 0;
-    int hour = 0;
-
-    List<Guy_Movement> guyList;
+    float min = 0;
+    float hour = 0;
 
     // Start is called before the first frame update
     void Start()
     {
         cam = Camera.main;
-        guyList = new List<Guy_Movement>();
         switchState = State.isNothing;
     }
 
     // Update is called once per frame
     void Update()
     {
-        globalTime = Time.time;
-        Time.timeScale = timeSclaeNum;
+        TimeStuff();
+        UpdateUI();
+        InputControl();
+    }
 
-        leftText.text = numberOfGuys.ToString();
-        timeText.text = GetTime(globalTime);
-
-
+    // Mouse Clicks
+    void InputControl()
+    {
+        // left mouse button
         if (Input.GetMouseButtonDown(0))
         {
-            if (EventSystem.current.IsPointerOverGameObject()) {
+            // check to see if it's using UI element or not
+            if (EventSystem.current.IsPointerOverGameObject())
+            {
+                return;
+            }
+            // Check to see if it hit a collider
+            Ray mousePos = Camera.main.ScreenPointToRay(Input.mousePosition);
+            if (!Physics.Raycast(mousePos, out RaycastHit hit))
+            {
                 return;
             }
 
-            switch (switchState) {
+            // Place Something depending on the state
+            switch (switchState)
+            {
                 case State.isPlacingGuys:
                     PlaceGuys();
                     break;
                 case State.isPlacingFoodGuys:
                     PlaceFoodguys();
                     break;
-
-
             }
-
         }
     }
 
-
+    // place normal guy and name him
     void PlaceGuys() {
-
-       GameObject newGuy = Instantiate(guy, GetWorldPosiition(), Quaternion.identity);
-        newGuy.name = "Guy_" + globalTime.ToString("F2");
-        Guy_Movement guyScript = newGuy.GetComponent<Guy_Movement>();
-       guyList.Add(guyScript);
+        GameObject newGuy = Instantiate(guy, GetWorldPosiition(), Quaternion.identity);
+        newGuy.name = "Guy_" + GetTime(globalTime);
         numberOfGuys++;
-
-
     }
+
 
     void PlaceFoodguys() {
         GameObject newGuy = Instantiate(food_Guy, GetWorldPosiition(), Quaternion.identity);
         newGuy.name = "Food Guy_" + GetTime(globalTime);
-
-    }
-
-    void PlaceFood()
-    {
-        Vector3 newFoodPos = GetWorldPosiition();
-        newFoodPos.y = 0;
-        GameObject newFood = Instantiate(food, newFoodPos, Quaternion.identity);
-        newFood.name = "Food_" + Random.Range(0, 99999);
-        FoodScript foodScript = newFood.GetComponent<FoodScript>();
-
-
     }
 
 
+    void UpdateUI() {
+        leftText.text = numberOfGuys.ToString();
+        timeText.text = GetTime(globalTime);
+    }
+
+    void TimeStuff() {
+        globalTime = Time.time;
+        Time.timeScale = timeSclaeNum;
+    }
+
+
+    // make time into a string
     public string GetTime(float floatTime) {
+        min = Mathf.Floor((floatTime - (hour * 3600)) / 60);
+        hour = Mathf.Floor(floatTime / 3600);
         float sec = floatTime - ((min * 60) + (hour * 3600));
-        if (sec >= 60f) {
-            min++;
-            if (min >= 60) {
-                min = 0;
-                hour++;
-
-            }
-
-        }
-
-
-
-
         return (" Hour: " + hour + " Min: " + min + " Sec: " + Mathf.Floor(sec));
     }
 
 
     
 
-
+    // Get the mouseclick position in world units
     public Vector3 GetWorldPosiition() {
         Ray mousePos = Camera.main.ScreenPointToRay(Input.mousePosition);
         if (Physics.Raycast(mousePos, out RaycastHit hit))
         {
             return hit.point;
-
         }
-
         else return Vector3.zero;
     }
 
@@ -134,7 +127,7 @@ public class ControllerScript : MonoBehaviour
 
 
 
-
+    // button functions
 
     public void IsPlacingGuys() {
         switchState = State.isPlacingGuys;
@@ -142,11 +135,8 @@ public class ControllerScript : MonoBehaviour
     public void IsPlacingFoodGuys() {
         switchState = State.isPlacingFoodGuys;
     }
-
-
     public void SetTimeScale(float newTimescale) {
        timeSclaeNum = newTimescale;
-
     }
 
     

@@ -305,7 +305,7 @@ GameObject:
   - component: {fileID: 3789863458497800188}
   - component: {fileID: -5235205568238451643}
   - component: {fileID: 8705273141890650289}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Guy
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -342,23 +342,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b6a07c6f4541aa449910ac66bbb4411f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  targetDest: {x: 0, y: 0, z: 0}
   switchState: 0
   currentFood: {fileID: 0}
+  currentGuyFood: {fileID: 0}
   spawnPrefab: {fileID: 3789863458497800187}
   foodLayer:
     serializedVersion: 2
     m_Bits: 512
-  buffer: 1
-  mutationRange: 0.75
+  cannibalLayer:
+    serializedVersion: 2
+    m_Bits: 1536
+  healthBarGreen: {fileID: 126386343}
+  extraBarBlue: {fileID: 5135799932537010833}
   searchRange: 10
   speed: 5
   foodSearchRadius: 2
   health: 20
   maxExtraFood: 20
   extraFood: 0
-  healthBarGreen: {fileID: 126386343}
-  extraBarBlue: {fileID: 5135799932537010833}
+  buffer: 1
+  mutationRange: 0.75
+  age: 
 --- !u!195 &3789863458497800188
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -408,7 +412,7 @@ SphereCollider:
   m_IsTrigger: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 1
+  m_Radius: 7
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &3860643206525386214
 GameObject:

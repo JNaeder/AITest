@@ -10,12 +10,16 @@ public class Food_Guy_Movement : MonoBehaviour
     NavMeshPath path;
     ControllerScript cS;
 
-    public Vector3 targetDest;
+    [Header("Set Up")]
     public GameObject foodPrefab;
+
+    [Header("Attributes")]
     public float searchRange = 10f;
     public float buffer = 1f;
     public float speed = 5f;
     public float dropRate = 10f;
+
+    Vector3 targetDest;
 
     // Start is called before the first frame update
     void Start()

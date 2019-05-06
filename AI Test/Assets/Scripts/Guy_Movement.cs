@@ -9,60 +9,66 @@ public class Guy_Movement : MonoBehaviour
 
     NavMeshAgent guyAgent;
     ControllerScript cS;
-
-    public Vector3 targetDest;
-
-    public enum State {searching, feeding}
-    public State switchState;
-
     NavMeshPath path;
+
+
+    public enum State {searching, feeding, cannibal, horny}
+    [Header("Status")]
+    public State switchState;
     public FoodScript currentFood;
+    public Guy_Movement currentGuyFood;
+   
+
+    [Header("Set Up")]
     public GameObject spawnPrefab;
     public LayerMask foodLayer;
+    public LayerMask cannibalLayer;
+    public GameObject healthBarGreen, extraBarBlue;
 
-    public float buffer = 1f;
-    public float mutationRange = 0.25f;
 
     [Header("Main Atrributes")]
+    public float strength = 5f;
     public float searchRange = 10f;
     public float speed = 5f;
     public float foodSearchRadius = 2f;
-
     public float health = 100f;
     public float maxExtraFood = 20f;
     public float extraFood = 0;
-    public GameObject healthBarGreen, extraBarBlue;
+    public float buffer = 1f;
+    public float mutationRange = 0.25f;
+    public string age;
+
 
     float startHealth;
     float foodRadius;
-    
+    float birthTime;
+    Vector3 targetDest;
 
     // Start is called before the first frame update
     void Start()
     {
 
-
+        //Assign
         cS = FindObjectOfType<ControllerScript>();
         guyAgent = GetComponent<NavMeshAgent>();
-        
+
+        // Set Up
         path =  new NavMeshPath();
-
         startHealth = health;
-
-        
-        targetDest = ChooseRandomSeekPos();
         guyAgent.speed = speed;
-        SetDest(targetDest);
+        birthTime = cS.globalTime;
+
+
+        GoToRandomPostion();
 
     }
 
     // Update is called once per frame
     void Update()
     {
-        //Debug.Log(switchState);
+        UpdateBars();
+        age = cS.GetTime(cS.globalTime - birthTime);
 
-        
-        UpdateHealthBar();
 
 
         switch (switchState) {
@@ -72,11 +78,13 @@ public class Guy_Movement : MonoBehaviour
             case State.feeding:
                 Feeding();
                 break;
-
-
+            case State.cannibal:
+                Cannibal();
+                break;
+            case State.horny:
+                Horny();
+                break;
         }
-        
-
     }
 
 
@@ -88,95 +96,103 @@ public class Guy_Movement : MonoBehaviour
     void Seeking() {
 
         health -= Time.deltaTime * 0.25f;
-
-
         guyAgent.speed = speed;
         guyAgent.isStopped = false;
 
+        // Go to random place and check for only food
         CheckForFood();
+        MoveToRandomValidPosition();
 
+        // If Dead
         if (health <= 0) {
-            //Debug.Log(name + " has died at " + cS.globalTime);
             ControllerScript.numberOfGuys--;
             Destroy(gameObject);
             return;
         }
 
-        guyAgent.CalculatePath(targetDest, path);
-
-        // if path is not valid, choose another one
-        if (path.status == NavMeshPathStatus.PathInvalid)
-        {
-            targetDest = ChooseRandomSeekPos();
-            SetDest(targetDest);
+        // If is hungry, will become cannibal
+        if(health <= startHealth * 0.75f) {
+            switchState = State.cannibal;
             return;
+           }
 
-        }
-        else if (path.status == NavMeshPathStatus.PathComplete) {
-            //path is valid but no food found
-            if (Vector3.Distance(transform.position, targetDest) < buffer && currentFood == null)
-            {
-                
-                targetDest = ChooseRandomSeekPos();
-                SetDest(targetDest);
-            }
-        } 
+        // If full extra food and more than half health, look for mate
+        if(extraFood >= maxExtraFood && health > startHealth * 0.5f) {
+            switchState = State.horny;
+            return;
+          }
+
+
+       
 
 
 
     }
 
     void Feeding() {
-
+        // Has Enough Food, stop feeding
         if (extraFood >= maxExtraFood ) {
-            //Debug.Log(name + " Fisnihed Eating");
             CreateSpawn();
             extraFood = 0;
             currentFood = null;
             switchState = State.searching;
-            targetDest = ChooseRandomSeekPos();
-            SetDest(targetDest);
+            MoveToRandomValidPosition();
             return;
 
         }
-        if (currentFood == null)
+
+        // Ran out of food, stop feeding
+        if (currentFood == null && currentGuyFood == null)
         {
-            //Debug.Log(name + " Ran Out of Food");
 
             currentFood = null;
+            currentGuyFood = null;
             switchState = State.searching;
-            targetDest = ChooseRandomSeekPos();
-            SetDest(targetDest);
+            MoveToRandomValidPosition();
             return;
 
-        }
-        else {
-            targetDest = currentFood.transform.position;
-            SetDest(targetDest);
-            //Debug.Log(Vector3.Distance(transform.position, targetDest) + name);
-            if (Vector3.Distance(transform.position, targetDest) < 2f)
-            {
+        } else if(currentFood != null && currentGuyFood == null) {
+            EatFood();
+         
+           } else if(currentGuyFood != null && currentFood == null) {
+            EatGuy();
+             }
 
-                currentFood.foodAmount -= Time.deltaTime;
-                if (health <= startHealth)
-                {
-                    health += Time.deltaTime;
-                }
-                else if (health >= startHealth)
-                {
-                    extraFood += Time.deltaTime;
-                }
-                guyAgent.isStopped = true;
-            }
-            else {
-                guyAgent.isStopped = false;
-            }
-
-        }
 
 
     }
 
+    void Cannibal() {
+        health -= Time.deltaTime * 0.1f;
+        guyAgent.speed = speed + 2;
+        guyAgent.isStopped = false;
+
+        // Go To random place and check for food or another guy
+        CheckForAnything();
+        MoveToRandomValidPosition();
+
+
+        // If Dead
+        if (health <= 0)
+        {
+            ControllerScript.numberOfGuys--;
+            Destroy(gameObject);
+            return;
+        }
+
+        if (health > startHealth * 0.75f) {
+            //switchState = State.searching;
+            return;
+          }
+
+
+
+
+    }
+
+    void Horny() {
+        Debug.Log("Horny!");
+      }
 
 
     void CheckForFood() {
@@ -184,27 +200,76 @@ public class Guy_Movement : MonoBehaviour
         FoodScript closestFood = null;
         float closestFoodDist = Mathf.Infinity;
 
+        // Check for all the food colliders it's touching, find the closest one
         Collider[] colls = Physics.OverlapSphere(transform.position, foodSearchRadius, foodLayer);
         if (colls.Length > 0) {
             foreach (Collider c in colls) {
                 float dist = Vector3.Distance(transform.position, c.gameObject.transform.position);
                 if (dist < closestFoodDist) {
                     closestFood = c.GetComponent<FoodScript>();
+                    closestFoodDist = dist;
                 }
             }
 
             currentFood = closestFood;
             switchState = State.feeding;
-            switchState = State.feeding;
         }
     }
 
-    void UpdateHealthBar() {
+    void CheckForAnything() {
+        GameObject closestThing = null;
+        float closestThingDist = Mathf.Infinity;
+
+        // Check for all the food colliders it's touching, find the closest one
+        Collider[] colls = Physics.OverlapSphere(transform.position, foodSearchRadius, cannibalLayer);
+        if (colls.Length > 0)
+        {
+            foreach (Collider c in colls)
+            {
+                if (c.gameObject != this.gameObject)
+                {
+                    Debug.Log("Some Other Collider! " + this.gameObject);
+                    float dist = Vector3.Distance(transform.position, c.gameObject.transform.position);
+                    if (dist < closestThingDist)
+                    {
+                        closestThing = c.gameObject;
+                        closestThingDist = dist;
+                    }
+                }
+            }
+
+            if(closestThing == null) {
+                return;
+              }
+
+            if (closestThing.GetComponent<FoodScript>() != null) {
+                currentFood = closestThing.GetComponent<FoodScript>();
+                currentGuyFood = null;
+
+               } else if(closestThing.GetComponent<Guy_Movement>() != null) {
+                currentGuyFood = closestThing.GetComponent<Guy_Movement>();
+                currentFood = null;
+                Debug.Log(name + " " + currentGuyFood);
+                if (currentGuyFood == this)
+                {
+                    currentGuyFood = null;
+                    return;
+                }
+            }
+            switchState = State.feeding;
+        }
+
+    }
+
+
+    void UpdateBars() {
+        //Update the Health UI Bar
         Vector3 healthScale = healthBarGreen.transform.localScale;
         float healthPerc = health / startHealth;
         healthScale.x = healthPerc;
         healthBarGreen.transform.localScale = healthScale;
 
+        //Update Extra Food UI Bar
         Vector3 extraScale = extraBarBlue.transform.localScale;
         float extraPerc = extraFood / maxExtraFood;
         extraScale.x = extraPerc;
@@ -212,60 +277,123 @@ public class Guy_Movement : MonoBehaviour
 
     }
 
+
+    //Seeking Stuff!
     Vector3 ChooseRandomSeekPos() {
         Vector3 newPos = new Vector3(Random.Range(-searchRange,searchRange), 0, Random.Range(-searchRange, searchRange));
         newPos += transform.position;
         return newPos;
     }
-
-    
-     void SetDest(Vector3 pos) {
+    void GoToRandomPostion() {
+        targetDest = ChooseRandomSeekPos();
+        SetDest(targetDest);
+    }
+    void SetDest(Vector3 pos) {
         guyAgent.SetDestination(pos);
+    }
+    void MoveToRandomValidPosition() {
+
+        //If alive then check to see if path is valid by calcutlating path
+        guyAgent.CalculatePath(targetDest, path);
+
+
+        // if path is not valid, choose another one
+        if (path.status == NavMeshPathStatus.PathInvalid)
+        {
+            GoToRandomPostion();
+            return;
+
+        }
+        else if (path.status == NavMeshPathStatus.PathComplete)
+        {
+            //path is valid but no food found
+            if (Vector3.Distance(transform.position, targetDest) < buffer && currentFood == null)
+            {
+
+                GoToRandomPostion();
+            }
+        }
+
 
     }
-    
+
+
+    void EatFood() {
+        //Set food as target;
+        targetDest = currentFood.transform.position;
+        SetDest(targetDest);
+
+
+        if (Vector3.Distance(transform.position, targetDest) < 2f)
+        {
+
+            currentFood.foodAmount -= Time.deltaTime;
+
+            if (health <= startHealth)
+            {
+                health += Time.deltaTime;
+            }
+            else if (health >= startHealth)
+            {
+                extraFood += Time.deltaTime;
+            }
+            guyAgent.isStopped = true;
+        }
+        else
+        {
+
+            guyAgent.isStopped = false;
+        }
+
+    }
+
+
+    void EatGuy() {
+        //Set food as target;
+        targetDest = currentGuyFood.transform.position;
+        SetDest(targetDest);
+
+
+        if (Vector3.Distance(transform.position, targetDest) < 2f)
+        {
+
+            currentGuyFood.health -= Time.deltaTime;
+
+            if (health <= startHealth)
+            {
+                health += Time.deltaTime;
+            }
+            guyAgent.isStopped = true;
+        }
+        else
+        {
+            guyAgent.isStopped = false;
+        }
+
+
+    }
 
     void CreateSpawn() {
         GameObject newGuy = Instantiate(spawnPrefab, transform.position, Quaternion.identity);
         newGuy.name = "Guy_" + cS.GetTime(cS.globalTime);
         Guy_Movement guyScript = newGuy.GetComponent<Guy_Movement>();
+
+        // Set new values based on mutations
         guyScript.speed = speed + Random.Range(-mutationRange, mutationRange);
         guyScript.searchRange = searchRange + Random.Range(-mutationRange, mutationRange);
         guyScript.foodSearchRadius = foodSearchRadius + Random.Range(-mutationRange, mutationRange);
 
-
-
-
         guyScript.extraFood = 0;
-       // Debug.Log(name + " spawned " + newGuy.name);
         ControllerScript.numberOfGuys++;
 
     }
 
 
-    private void OnTriggerEnter(Collider other)
-    {
-        
-        if (other.gameObject.tag == "Bloob") {
-            //Debug.Log("Has started eating " + other.gameObject.name);
-
-            switchState = State.feeding;
-            currentFood = other.GetComponent<FoodScript>();
-            switchState = State.feeding;
-            foodRadius = currentFood.foodModel.GetComponent<Collider>().bounds.size.x;
-        } 
-    }
 
 
-
-
-
+    // My Gizmos!
     private void OnDrawGizmos()
-    {
-
-        //Gizmos.color = Color.red;
-       // Gizmos.DrawWireSphere(transform.position, searchRange);
-        //Gizmos.color = Color.blue;
+    { 
         if (currentFood != null)
         {
             Gizmos.color = Color.green;
