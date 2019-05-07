@@ -116,7 +116,9 @@ public class ControllerScript : MonoBehaviour
         Ray mousePos = Camera.main.ScreenPointToRay(Input.mousePosition);
         if (Physics.Raycast(mousePos, out RaycastHit hit))
         {
-            return hit.point;
+            Vector3 newHitPoint = hit.point;
+            newHitPoint.y = 0;
+            return newHitPoint;
         }
         else return Vector3.zero;
     }

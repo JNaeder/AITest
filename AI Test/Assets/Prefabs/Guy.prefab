@@ -345,6 +345,7 @@ MonoBehaviour:
   switchState: 0
   currentFood: {fileID: 0}
   currentGuyFood: {fileID: 0}
+  currentPartner: {fileID: 0}
   spawnPrefab: {fileID: 3789863458497800187}
   foodLayer:
     serializedVersion: 2
@@ -352,8 +353,12 @@ MonoBehaviour:
   cannibalLayer:
     serializedVersion: 2
     m_Bits: 1536
+  hornyLayer:
+    serializedVersion: 2
+    m_Bits: 1024
   healthBarGreen: {fileID: 126386343}
   extraBarBlue: {fileID: 5135799932537010833}
+  strength: 5
   searchRange: 10
   speed: 5
   foodSearchRadius: 2
@@ -363,6 +368,7 @@ MonoBehaviour:
   buffer: 1
   mutationRange: 0.75
   age: 
+  childrenHad: 0
 --- !u!195 &3789863458497800188
 NavMeshAgent:
   m_ObjectHideFlags: 0

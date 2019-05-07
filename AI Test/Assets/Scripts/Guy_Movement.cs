@@ -12,17 +12,19 @@ public class Guy_Movement : MonoBehaviour
     NavMeshPath path;
 
 
-    public enum State {searching, feeding, cannibal, horny}
+    public enum State {searching, feeding, cannibal, horny, beingEaten}
     [Header("Status")]
     public State switchState;
     public FoodScript currentFood;
     public Guy_Movement currentGuyFood;
+    public Guy_Movement currentPartner;
    
 
     [Header("Set Up")]
     public GameObject spawnPrefab;
     public LayerMask foodLayer;
     public LayerMask cannibalLayer;
+    public LayerMask hornyLayer;
     public GameObject healthBarGreen, extraBarBlue;
 
 
@@ -37,6 +39,7 @@ public class Guy_Movement : MonoBehaviour
     public float buffer = 1f;
     public float mutationRange = 0.25f;
     public string age;
+    public int childrenHad;
 
 
     float startHealth;
@@ -84,6 +87,9 @@ public class Guy_Movement : MonoBehaviour
             case State.horny:
                 Horny();
                 break;
+            case State.beingEaten:
+                BeingEaten();
+                break;
         }
     }
 
@@ -111,7 +117,7 @@ public class Guy_Movement : MonoBehaviour
         }
 
         // If is hungry, will become cannibal
-        if(health <= startHealth * 0.75f) {
+        if(health <= startHealth * 0.25f) {
             switchState = State.cannibal;
             return;
            }
@@ -132,11 +138,8 @@ public class Guy_Movement : MonoBehaviour
     void Feeding() {
         // Has Enough Food, stop feeding
         if (extraFood >= maxExtraFood ) {
-            CreateSpawn();
-            extraFood = 0;
-            currentFood = null;
-            switchState = State.searching;
-            MoveToRandomValidPosition();
+            switchState = State.horny;
+            GoToRandomPostion();
             return;
 
         }
@@ -151,12 +154,16 @@ public class Guy_Movement : MonoBehaviour
             MoveToRandomValidPosition();
             return;
 
-        } else if(currentFood != null && currentGuyFood == null) {
+        }
+        if (currentFood != null && currentGuyFood == null)
+        {
             EatFood();
-         
-           } else if(currentGuyFood != null && currentFood == null) {
+
+        }
+        else if (currentGuyFood != null && currentFood == null)
+        {
             EatGuy();
-             }
+        }
 
 
 
@@ -181,7 +188,7 @@ public class Guy_Movement : MonoBehaviour
         }
 
         if (health > startHealth * 0.75f) {
-            //switchState = State.searching;
+            switchState = State.searching;
             return;
           }
 
@@ -191,8 +198,45 @@ public class Guy_Movement : MonoBehaviour
     }
 
     void Horny() {
-        Debug.Log("Horny!");
-      }
+        //Debug.Log(name + " is horny");
+
+        health -= Time.deltaTime * 0.25f;
+        guyAgent.speed = speed;
+        guyAgent.isStopped = false;
+        currentFood = null;
+
+        CheckForPartner();
+        MoveToRandomValidPosition();
+
+        if (health <= startHealth * 0.5f)
+        {
+            switchState = State.searching;
+            return;
+        }
+        // Makew new person
+        if (currentPartner) {
+            CreateSpawn();
+            extraFood = 0;
+            currentPartner.extraFood = 0;
+            currentPartner.currentPartner = null;
+            switchState = State.searching;
+            currentPartner.switchState = State.searching;
+            currentPartner = null;
+            GoToRandomPostion();
+        }
+    }
+
+
+    void BeingEaten() {
+        // If Dead
+        if (health <= 0)
+        {
+            ControllerScript.numberOfGuys--;
+            Destroy(gameObject);
+            return;
+        }
+
+    }
 
 
     void CheckForFood() {
@@ -220,15 +264,33 @@ public class Guy_Movement : MonoBehaviour
         GameObject closestThing = null;
         float closestThingDist = Mathf.Infinity;
 
+        Collider[] collsFood = Physics.OverlapSphere(transform.position, foodSearchRadius,foodLayer);
+        if(collsFood.Length > 0) {
+            foreach(Collider c in collsFood) {
+                float dist = Vector3.Distance(transform.position, c.gameObject.transform.position);
+                if (dist < closestThingDist)
+                {
+                    closestThing = c.gameObject;
+                    closestThingDist = dist;
+                }
+            }
+            }
+
+        if(closestThing != null) {
+            currentFood = closestThing.GetComponent<FoodScript>();
+            return;
+     }      
+
+
         // Check for all the food colliders it's touching, find the closest one
         Collider[] colls = Physics.OverlapSphere(transform.position, foodSearchRadius, cannibalLayer);
         if (colls.Length > 0)
         {
             foreach (Collider c in colls)
             {
-                if (c.gameObject != this.gameObject)
+                if (c.gameObject != gameObject)
                 {
-                    Debug.Log("Some Other Collider! " + this.gameObject);
+                    //Debug.Log("Some Other Collider! " + this.gameObject);
                     float dist = Vector3.Distance(transform.position, c.gameObject.transform.position);
                     if (dist < closestThingDist)
                     {
@@ -249,15 +311,37 @@ public class Guy_Movement : MonoBehaviour
                } else if(closestThing.GetComponent<Guy_Movement>() != null) {
                 currentGuyFood = closestThing.GetComponent<Guy_Movement>();
                 currentFood = null;
-                Debug.Log(name + " " + currentGuyFood);
-                if (currentGuyFood == this)
-                {
-                    currentGuyFood = null;
-                    return;
-                }
             }
             switchState = State.feeding;
         }
+
+    }
+
+
+    void CheckForPartner() {
+        Guy_Movement closestGuy = null;
+        float closestGuyDist = Mathf.Infinity;
+
+        Collider[] colls = Physics.OverlapSphere(transform.position, foodSearchRadius, hornyLayer);
+        if(colls.Length > 0) {
+            foreach (Collider c in colls)
+            {
+                if (c.gameObject != gameObject)
+                {
+                    //Debug.Log("Some Other Collider! " + this.gameObject);
+                    float dist = Vector3.Distance(transform.position, c.gameObject.transform.position);
+                    if (dist < closestGuyDist)
+                    {
+                        closestGuy = c.GetComponent<Guy_Movement>();
+                        closestGuyDist = dist;
+                    }
+                }
+            }
+        }
+
+        if(closestGuy != null) {
+            currentPartner = closestGuy;
+ }
 
     }
 
@@ -354,15 +438,24 @@ public class Guy_Movement : MonoBehaviour
         SetDest(targetDest);
 
 
+        if(health <= 0) {
+            currentGuyFood.switchState = State.searching;
+ }
+
+
         if (Vector3.Distance(transform.position, targetDest) < 2f)
         {
 
             currentGuyFood.health -= Time.deltaTime;
+            currentGuyFood.switchState = State.beingEaten;
 
             if (health <= startHealth)
             {
-                health += Time.deltaTime;
-            }
+                health += Time.deltaTime * 0.5f;
+            } else {
+                switchState = State.searching;
+                currentGuyFood.switchState = State.searching;
+ }
             guyAgent.isStopped = true;
         }
         else
@@ -382,8 +475,10 @@ public class Guy_Movement : MonoBehaviour
         guyScript.speed = speed + Random.Range(-mutationRange, mutationRange);
         guyScript.searchRange = searchRange + Random.Range(-mutationRange, mutationRange);
         guyScript.foodSearchRadius = foodSearchRadius + Random.Range(-mutationRange, mutationRange);
+        guyScript.health = health + Random.Range(-mutationRange, mutationRange);
 
         guyScript.extraFood = 0;
+        guyScript.switchState = State.searching;
         ControllerScript.numberOfGuys++;
 
     }
